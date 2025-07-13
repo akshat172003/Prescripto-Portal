@@ -40,6 +40,7 @@ import about_image from './about_image.png'
 import contact_image from './contact_image.png'
 import menu_icon from './menu_icon.svg'
 import cross_icon from './cross_icon.png'
+import upload_icon from './upload_icon.png'
 
 export const assets = {
     add_icon,
@@ -83,7 +84,8 @@ export const assets = {
     about_image,
     contact_image,
     menu_icon,
-    cross_icon
+    cross_icon,
+    upload_icon
 
 }
 
