@@ -3,6 +3,7 @@ import axios from 'axios'
 import {toast} from 'react-toastify'
 
 
+
 export const AppContext = createContext()
 
 const AppContextProvider = (props) => {
@@ -46,7 +47,7 @@ const AppContextProvider = (props) => {
     }
 
     const value = {
-        doctors,
+        doctors,getDoctorsData,
         CurrencySymbol,
         token, setToken,
         backendUrl, 
