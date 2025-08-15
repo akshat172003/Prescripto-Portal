@@ -261,10 +261,51 @@ const bookAppointment = async (req, res) => {
 }
 
 const razorpayInstance = new Razorpay({
-    key_id: '',
-    key_secret: ''
+    key_id: process.env.RAZORPAY_KEY_ID ,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 //api to make payment
-const paymentRazorpay = async (req, res) => {}
+const paymentRazorpay = async (req, res) => {
 
-export { registerUser, loginUser, getProfile, updateProfile, getUserAppointments, cancelAppointment, bookAppointment };
+    try {
+
+        const appointmentId = req.body;
+    const appointmentData= await appointmentModel.findById(appointmentId);
+    if(!appointmentData || appointmentData.cancelled) {
+        return res.json({ success: false, message: "Appointment not found" });
+    }
+    //CREATING OPTION FOR RAZORPAY PAYMENT
+    const options = {
+        amount: appointmentData.amount * 100, // Amount in paise
+        currency: process.env.CURRENCY,
+        receipt: appointmentId
+    }
+
+    //CREATING ORDER
+    const order = await razorpayInstance.orders.create(options);
+    res.json({success:true,order})
+
+        
+    } catch (error) {
+        console.log(error);
+        return res.json({ success: false, message: error.message });
+    }
+
+    const appointmentId = req.body;
+    const appointmentData= await appointmentModel.findById(appointmentId);
+    if(!appointmentData || appointmentData.cancelled) {
+        return res.json({ success: false, message: "Appointment not found" });
+    }
+    //CREATING OPTION FOR RAZORPAY PAYMENT
+    const options = {
+        amount: appointmentData.amount * 100, // Amount in paise
+        currency: process.env.CURRENCY,
+        receipt: appointmentId
+    }
+
+    //CREATING ORDER
+    const order = await razorpayInstance.orders.create(options);
+    res.json({success:true,order})
+}
+
+export { registerUser, loginUser, getProfile, updateProfile, getUserAppointments, cancelAppointment, bookAppointment , paymentRazorpay };

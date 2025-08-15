@@ -72,6 +72,25 @@ const MyAppointment = () => {
     return doctors.find(doctor => doctor._id === docId);
   };
 
+  const appointmentRazorpay=async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/user/payment-razorpay',
+        { appointmentId },
+        { headers: { token } }
+      );
+
+      if (data.success) {
+        console.log(data.order);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error('Failed to process payment');
+    }
+  }
+
   useEffect(() => {
     if (token && doctors.length > 0) {
       getUserAppointments();
@@ -146,7 +165,7 @@ const MyAppointment = () => {
                 <div className="flex flex-col gap-2 ml-auto">
                   {!appointment.cancelled && !appointment.isCompleted && (
                     <>
-                      <button className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                      <button onClick={() => appointmentRazorpay(appointment._id)} className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
                         Pay Online
                       </button>
                       <button 
