@@ -18,8 +18,8 @@ const Contact = () => {
                   54709 Willms Station <br />Suite 350, Washington, USA
                 </div>
                 <div>
-                  <p>Tel: (415) 555‑0132</p>
-                  <p>Email: greatstackdev@gmail.com</p>
+                  <p>Tel: +919039279178</p>
+                  <p>Email: 1702akshat@gmail.com</p>
                 </div>
                 <div className='font-bold'>
                  Careers at PRESCRIPTO
