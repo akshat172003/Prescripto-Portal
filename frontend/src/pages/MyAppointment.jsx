@@ -72,7 +72,7 @@ const MyAppointment = () => {
     return doctors.find(doctor => doctor._id === docId);
   };
 
-  const appointmentRazorpay=async (appointmentId) => {
+  const appointmentRazorpay = async (appointmentId) => {
     try {
       const { data } = await axios.post(
         backendUrl + '/api/user/payment-razorpay',
@@ -80,10 +80,61 @@ const MyAppointment = () => {
         { headers: { token } }
       );
 
-      if (data.success) {
-        console.log(data.order);
+      if (data.success && data.order) {
+        const { order, key } = data;
+
+        // Ensure Razorpay script is available, load if missing
+        const ensureRazorpay = () => new Promise((resolve, reject) => {
+          if (window.Razorpay) return resolve();
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+          document.body.appendChild(script);
+        });
+
+        await ensureRazorpay();
+
+        const options = {
+          key: key, // Provided by backend
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Prescripto',
+          description: 'Appointment Payment',
+          order_id: order.id,
+          handler: async function (response) {
+            try {
+              const verifyRes = await axios.post(
+                backendUrl + '/api/user/verify-razorpay',
+                {
+                  appointmentId,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                },
+                { headers: { token } }
+              );
+              if (verifyRes.data.success) {
+                toast.success('Payment successful');
+                getUserAppointments();
+              } else {
+                toast.error(verifyRes.data.message || 'Payment verification failed');
+              }
+            } catch (e) {
+              console.log(e);
+              toast.error('Payment verification error');
+            }
+          },
+          modal: { ondismiss: function () { toast.info('Payment cancelled'); } },
+          prefill: {},
+          notes: { appointmentId },
+          theme: { color: '#0ea5e9' }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else {
-        toast.error(data.message);
+        toast.error(data.message || 'Unable to create payment order');
       }
     } catch (error) {
       console.log(error);
@@ -147,23 +198,27 @@ const MyAppointment = () => {
                   <p className="text-sm">
                     <span className="font-semibold">Status:</span>{' '}
                     <span className={`px-2 py-1 rounded text-xs ${
-                      appointment.cancelled 
-                        ? 'bg-red-100 text-red-800' 
-                        : appointment.isCompleted 
+                      appointment.cancelled
+                        ? 'bg-red-100 text-red-800'
+                        : appointment.isCompleted
                         ? 'bg-green-100 text-green-800'
+                        : appointment.payment
+                        ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-blue-100 text-blue-800'
                     }`}>
-                      {appointment.cancelled 
-                        ? 'Cancelled' 
-                        : appointment.isCompleted 
-                        ? 'Completed' 
+                      {appointment.cancelled
+                        ? 'Cancelled'
+                        : appointment.isCompleted
+                        ? 'Completed'
+                        : appointment.payment
+                        ? 'Paid Online'
                         : 'Scheduled'}
                     </span>
                   </p>
                 </div>
 
                 <div className="flex flex-col gap-2 ml-auto">
-                  {!appointment.cancelled && !appointment.isCompleted && (
+                  {!appointment.cancelled && !appointment.isCompleted && !appointment.payment && (
                     <>
                       <button onClick={() => appointmentRazorpay(appointment._id)} className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
                         Pay Online

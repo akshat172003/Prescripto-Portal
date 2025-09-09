@@ -1,5 +1,5 @@
 import express from 'express'
-import { registerUser, loginUser, getProfile, updateProfile, bookAppointment, getUserAppointments, cancelAppointment , paymentRazorpay} from '../controller/UserController.js'
+import { registerUser, loginUser, getProfile, updateProfile, bookAppointment, getUserAppointments, cancelAppointment , paymentRazorpay, verifyRazorpay} from '../controller/UserController.js'
 import authUser from '../middlewares/authUser.js'
 import upload from '../middlewares/multer.js'
 
@@ -16,6 +16,7 @@ userRouter.param('userId', (req, res, next, userId) => {
     req.userId = userId
     next()
 })             
-userRouter.post('payment-razorpay',authUser, paymentRazorpay)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+userRouter.post('/payment-razorpay', authUser, paymentRazorpay)
+userRouter.post('/verify-razorpay', authUser, verifyRazorpay)
 
 export default userRouter

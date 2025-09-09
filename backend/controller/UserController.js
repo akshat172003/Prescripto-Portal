@@ -6,6 +6,7 @@ import {v2 as cloudinary} from 'cloudinary'
 import doctorModel from '../models/DoctorModel.js'
 import appointmentModel from '../models/appointmentModel.js' // ADD THIS IMPORT
 import Razorpay from 'razorpay'
+import crypto from 'crypto'
 
 //API to register user
 const registerUser = async(req,res) => {
@@ -264,48 +265,56 @@ const razorpayInstance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID ,
     key_secret: process.env.RAZORPAY_KEY_SECRET
 });
-//api to make payment
+ 
+// api to make payment
 const paymentRazorpay = async (req, res) => {
-
     try {
+        const { appointmentId } = req.body;
+        if (!appointmentId) {
+            return res.json({ success: false, message: 'appointmentId is required' });
+        }
 
-        const appointmentId = req.body;
-    const appointmentData= await appointmentModel.findById(appointmentId);
-    if(!appointmentData || appointmentData.cancelled) {
-        return res.json({ success: false, message: "Appointment not found" });
-    }
-    //CREATING OPTION FOR RAZORPAY PAYMENT
-    const options = {
-        amount: appointmentData.amount * 100, // Amount in paise
-        currency: process.env.CURRENCY,
-        receipt: appointmentId
-    }
+        const appointmentData = await appointmentModel.findById(appointmentId);
+        if (!appointmentData || appointmentData.cancelled) {
+            return res.json({ success: false, message: 'Appointment not found' });
+        }
 
-    //CREATING ORDER
-    const order = await razorpayInstance.orders.create(options);
-    res.json({success:true,order})
+        const options = {
+            amount: Math.round((appointmentData.amount || 0) * 100),
+            currency: process.env.CURRENCY || 'INR',
+            receipt: String(appointmentId)
+        };
 
-        
+        const order = await razorpayInstance.orders.create(options);
+        return res.json({ success: true, order, key: process.env.RAZORPAY_KEY_ID });
     } catch (error) {
         console.log(error);
         return res.json({ success: false, message: error.message });
     }
-
-    const appointmentId = req.body;
-    const appointmentData= await appointmentModel.findById(appointmentId);
-    if(!appointmentData || appointmentData.cancelled) {
-        return res.json({ success: false, message: "Appointment not found" });
-    }
-    //CREATING OPTION FOR RAZORPAY PAYMENT
-    const options = {
-        amount: appointmentData.amount * 100, // Amount in paise
-        currency: process.env.CURRENCY,
-        receipt: appointmentId
-    }
-
-    //CREATING ORDER
-    const order = await razorpayInstance.orders.create(options);
-    res.json({success:true,order})
 }
 
-export { registerUser, loginUser, getProfile, updateProfile, getUserAppointments, cancelAppointment, bookAppointment , paymentRazorpay };
+// api to verify payment and mark appointment as paid
+const verifyRazorpay = async (req, res) => {
+    try {
+        const { appointmentId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        if (!appointmentId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.json({ success: false, message: 'Missing payment verification details' });
+        }
+
+        const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+        hmac.update(razorpay_order_id + '|' + razorpay_payment_id);
+        const generatedSignature = hmac.digest('hex');
+
+        if (generatedSignature !== razorpay_signature) {
+            return res.json({ success: false, message: 'Payment verification failed' });
+        }
+
+        await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true });
+        return res.json({ success: true, message: 'Payment verified and recorded' });
+    } catch (error) {
+        console.log(error);
+        return res.json({ success: false, message: error.message });
+    }
+}
+
+export { registerUser, loginUser, getProfile, updateProfile, getUserAppointments, cancelAppointment, bookAppointment , paymentRazorpay, verifyRazorpay };
