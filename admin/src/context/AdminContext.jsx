@@ -14,6 +14,17 @@ const AdminContextProvider = (props) => {
     const[appointments,setAppointments]=useState([])
     const [dashData, setDashData] = useState(false)
 
+    // If opened with ?logout=1, force admin logout and show login screen
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search)
+            if (params.get('logout') === '1') {
+                localStorage.removeItem('aToken')
+                setAToken('')
+            }
+        } catch {}
+    }, [])
+
     const getAllDoctors=async()=>{
         try {
 

@@ -15,6 +15,8 @@ const navBar = () => {
     localStorage.removeItem('token')
   }
 
+  const adminUrl = (import.meta.env.VITE_ADMIN_URL || 'http://localhost:5174') + '?logout=1'
+
   return (
     <div className='flex items-center justify-between text-sm py-4 mb-5 border-b border-b-gray-400'>
       <img onClick={()=>navigate('/')} className='w-44 cursor-pointer' src={assets.logo} alt="Logo" />
@@ -37,6 +39,7 @@ const navBar = () => {
         </NavLink>
       </ul>
       <div className='flex items-center gap-4'>
+        <button onClick={() => window.open(adminUrl, '_blank')} className='hidden md:block border px-4 py-2 rounded-full'>Admin Panel</button>
         {
         token && userData  ? (
           <div className='flex items-center gap-2 cursor-pointer group relative'>
@@ -67,6 +70,9 @@ const navBar = () => {
                 <NavLink onClick={()=>setShowMenu(false)} to='/about'><p className='px-4 py-2 rounded inline-block'>ABOUT</p></NavLink>
                 <NavLink onClick={()=>setShowMenu(false)} to='/contact'><p className='px-4 py-2 rounded inline-block'>CONTACT</p></NavLink>
               </ul>
+              <div className='px-5 mt-3'>
+                <button onClick={() => { window.open(adminUrl, '_blank'); setShowMenu(false); }} className='w-full border px-4 py-2 rounded-full'>Admin Panel</button>
+              </div>
             </div>
           </div>
         </div>
