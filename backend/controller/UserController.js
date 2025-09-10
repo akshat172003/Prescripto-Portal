@@ -119,15 +119,36 @@ const getUserAppointments = async (req, res) => {
     try {
         const userId = req.user.id;
         console.log('Fetching appointments for user:', userId); // Debug log
-        
         const appointments = await appointmentModel.find({ userId }).sort({ date: -1 });
-        
+        // Filter out past appointments
+        const now = new Date();
+        const parseSlotToDate = (slotDate, slotTime) => {
+            try {
+                if (!slotDate) return null;
+                const [day, month, year] = String(slotDate).split('_');
+                const dt = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+                if (slotTime) {
+                    const match = String(slotTime).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                    if (match) {
+                        let hours = Number(match[1]);
+                        const minutes = Number(match[2]);
+                        const period = match[3]?.toUpperCase();
+                        if (period === 'PM' && hours < 12) hours += 12;
+                        if (period === 'AM' && hours === 12) hours = 0;
+                        dt.setHours(hours, minutes, 0, 0);
+                    }
+                }
+                return dt;
+            } catch { return null; }
+        };
+        const upcoming = appointments.filter(a => {
+            if (a.cancelled) return false;
+            const d = parseSlotToDate(a.slotDate, a.slotTime);
+            return d ? d >= now : true;
+        });
         console.log('Found appointments:', appointments.length); // Debug log
         
-        res.json({ 
-            success: true, 
-            appointments
-        });
+        res.json({ success: true, appointments: upcoming });
         
     } catch (error) {
         console.log('Get appointments error:', error);

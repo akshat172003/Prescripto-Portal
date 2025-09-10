@@ -8,7 +8,7 @@ export const AppContext = createContext()
 
 const AppContextProvider = (props) => {
 
-    const CurrencySymbol= '$'
+    const CurrencySymbol= '₹'
     const backendUrl=import.meta.env.VITE_BACKEND_URL
 
     const [doctors,setDoctors] = useState([])
@@ -57,6 +57,10 @@ const AppContextProvider = (props) => {
 
     useEffect(()=>{
         getDoctorsData()
+        const intervalId = setInterval(() => {
+            getDoctorsData()
+        }, 30000)
+        return () => clearInterval(intervalId)
     },[])
     useEffect(()=>{
         if(token){

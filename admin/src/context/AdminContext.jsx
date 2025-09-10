@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios'
 import {toast} from 'react-toastify'
 
@@ -17,7 +17,7 @@ const AdminContextProvider = (props) => {
     const getAllDoctors=async()=>{
         try {
 
-            const {data}=  await axios.post(backendUrl+'/api/admin/all-doctors',{}, {headers:{aToken}})
+            const {data}=  await axios.post(backendUrl+'/api/admin/all-doctors',{}, {headers:{atoken: aToken}})
             if(data.success){
                 setDoctors(data.doctors)
                 console.log(data.doctors)
@@ -32,10 +32,11 @@ const AdminContextProvider = (props) => {
 
     const changeAvailability=async(docId)=>{
         try {
-           const {data}= await axios.post(backendUrl+'/api/admin/change-availability',{docId},{headers:{aToken}})
+           const {data}= await axios.post(backendUrl+'/api/admin/change-availability',{docId},{headers:{atoken: aToken}})
             if(data.success){
                 toast.success(data.message)
                 getAllDoctors()
+                getDashboardData()
             } else {
                 toast.error(data.message)
             }
@@ -45,11 +46,12 @@ const AdminContextProvider = (props) => {
         }
     }
 
+
     const getAllAppointments = async () => {
         try {
             
             const { data } = await axios.get(backendUrl + '/api/admin/appointments', {
-                headers: { aToken }
+                headers: { atoken: aToken }
             });
             if (data.success) {
                 setAppointments(data.appointments);
@@ -70,12 +72,13 @@ const AdminContextProvider = (props) => {
             const { data } = await axios.post(
                 backendUrl + '/api/admin/cancel-appointment',
                 { appointmentId },
-                { headers: { aToken } }
+                { headers: { atoken: aToken } }
             );
 
             if (data.success) {
                 toast.success('Appointment cancelled successfully');
-                getAllAppointments(); // Refresh appointments
+                getAllAppointments();
+                getDashboardData();
             } else {
                 toast.error(data.message);
             }
@@ -87,11 +90,16 @@ const AdminContextProvider = (props) => {
     const getDashboardData = async () => {
         try {
             const { data } = await axios.get(backendUrl + '/api/admin/dashboard-data', {
-                headers: { aToken }
+                headers: { atoken: aToken }
             });
             if (data.success) {
-                setDashData(data.data);
-                console.log(data.data);
+                const normalized = data.data || data.dashboardData || {};
+                const withLatest = {
+                    ...normalized,
+                    latestBookings: normalized.latestBookings || normalized.latestAppointments || []
+                }
+                setDashData(withLatest);
+                console.log(withLatest);
             } else {
                 toast.error(data.message);
             }
@@ -99,6 +107,18 @@ const AdminContextProvider = (props) => {
             toast.error('Failed to fetch dashboard data');
         }
     };
+
+    // Auto-refresh dashboard and appointments so user-side cancellations reflect here
+    useEffect(() => {
+        if (!aToken) return;
+        getDashboardData();
+        getAllAppointments();
+        const intervalId = setInterval(() => {
+            getDashboardData();
+            getAllAppointments();
+        }, 10000);
+        return () => clearInterval(intervalId);
+    }, [aToken]);
 
     const value = {
         aToken,setAToken,backendUrl,doctors,getAllDoctors,changeAvailability,getAllAppointments, appointments, setAppointments, cancelAppointment, dashData, getDashboardData

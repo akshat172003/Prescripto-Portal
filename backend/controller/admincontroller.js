@@ -90,7 +90,39 @@ const allDoctors= async (req,res)=>{
 const appointmentsAdmin = async (req, res) => {
     try {
         const appointments = await appointmentModel.find({})
-        res.json({ success: true, appointments });
+        // Keep upcoming appointments (both active and cancelled), exclude past
+        const now = new Date();
+        const parseSlotToDate = (slotDate, slotTime) => {
+            try {
+                if (!slotDate) return null;
+                const [day, month, year] = String(slotDate).split('_');
+                const dt = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+                if (slotTime) {
+                    const match = String(slotTime).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                    if (match) {
+                        let hours = Number(match[1]);
+                        const minutes = Number(match[2]);
+                        const period = match[3]?.toUpperCase();
+                        if (period === 'PM' && hours < 12) hours += 12;
+                        if (period === 'AM' && hours === 12) hours = 0;
+                        dt.setHours(hours, minutes, 0, 0);
+                    }
+                }
+                return dt;
+            } catch { return null; }
+        };
+        const upcoming = appointments.filter(a => {
+            const d = parseSlotToDate(a.slotDate, a.slotTime);
+            return d ? d >= now : true;
+        });
+        // Sort: active (not cancelled) first, then by soonest date/time
+        const sorted = upcoming.sort((a, b) => {
+            if (!!a.cancelled !== !!b.cancelled) return a.cancelled ? 1 : -1;
+            const da = parseSlotToDate(a.slotDate, a.slotTime) || 0;
+            const db = parseSlotToDate(b.slotDate, b.slotTime) || 0;
+            return da - db;
+        });
+        res.json({ success: true, appointments: sorted });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -150,21 +182,67 @@ const appointmentCancel = async (req, res) => {
 //API to get dashboard data from admin
 const adminDashboardData = async (req, res) => {
     try {
-        const totalDoctors = await doctorModel.find({});
-        const totalAppointments = await appointmentModel.find({});
-        const totalPatients = await appointmentModel.find({});
+        const doctors = await doctorModel.find({});
+        // Consider ONLY active (not cancelled) and upcoming appointments for counts/earnings
+        const allActive = await appointmentModel
+            .find({ $or: [{ cancelled: { $exists: false } }, { cancelled: false }] })
+            .sort({ date: -1 });
+        const now = new Date();
+        const parseSlotToDate = (slotDate, slotTime) => {
+            try {
+                if (!slotDate) return null;
+                const [day, month, year] = String(slotDate).split('_');
+                const dt = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+                if (slotTime) {
+                    const match = String(slotTime).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                    if (match) {
+                        let hours = Number(match[1]);
+                        const minutes = Number(match[2]);
+                        const period = match[3]?.toUpperCase();
+                        if (period === 'PM' && hours < 12) hours += 12;
+                        if (period === 'AM' && hours === 12) hours = 0;
+                        dt.setHours(hours, minutes, 0, 0);
+                    }
+                }
+                return dt;
+            } catch { return null; }
+        };
+        const activeAppointments = allActive.filter(a => {
+            const d = parseSlotToDate(a.slotDate, a.slotTime);
+            return d ? d >= now : true;
+        });
 
-        const dashboardData = {
-            totalDoctors: totalDoctors.length,
-            totalAppointments: totalAppointments.length,
-            totalPatients: totalPatients.length,
-            latestAppointments: totalAppointments.reverse().slice(0,5) 
+        const totalDoctors = doctors.length;
+        const totalAppointments = activeAppointments.length;
+        // Distinct patients among active appointments
+        const uniquePatientIds = new Set(activeAppointments.map(a => a.userId));
+        const totalPatients = uniquePatientIds.size;
+
+        const paidAppointments = activeAppointments.filter(a => !!a.payment);
+        const unpaidAppointments = activeAppointments.filter(a => !a.payment);
+        const paidCount = paidAppointments.length;
+        const unpaidCount = unpaidAppointments.length;
+        const revenue = paidAppointments.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+
+        const latestBookings = activeAppointments.slice(0, 3).map(a => ({
+            _id: a._id,
+            patientName: a.userData?.name || 'Unknown',
+            date: a.slotDate || a.date,
+            amount: a.amount,
+            paid: !!a.payment
+        }));
+
+        const data = {
+            totalDoctors,
+            totalAppointments,
+            totalPatients,
+            paidCount,
+            unpaidCount,
+            revenue,
+            latestBookings
         };
 
-        res.json({
-            success: true,
-            dashboardData
-        });
+        res.json({ success: true, data });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

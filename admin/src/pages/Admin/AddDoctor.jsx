@@ -19,7 +19,7 @@ const AddDoctor = () => {
     const [address2,setAddress2]=useState('')
     const [address3,setAddress3]=useState('')
 
-    const {backendUrl,aToken}=useContext(AdminContext)
+    const {backendUrl,aToken, getDashboardData, getAllDoctors}=useContext(AdminContext)
 
     const onSubmitHandler= async (event)=>{
         event.preventDefault()
@@ -60,6 +60,8 @@ const AddDoctor = () => {
                 setAddress3('')
                 setDegree('')
                 setFees('')
+                getAllDoctors()
+                getDashboardData()
 
             } else { 
                 toast.error(data.message)
